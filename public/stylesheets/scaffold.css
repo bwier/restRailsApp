@@ -1,0 +1,27 @@
+
+table.sample { 
+  border-width: 0px;
+  border-collapse: collapse;
+}
+
+table.sample th,td {
+  border-width: 1px;
+        border-style: solid;
+}
+
+div.request{ 
+  height:120px;
+  width:750px;
+  overflow:auto;
+  font:12px/24px Georgia,Garamond,Serif;
+  border: 1px solid rgb(0,0,0)
+}
+
+div.response {
+  height:420px;
+  width:750px;
+  overflow:auto;
+  font:12px/24px Georgia,Garamond,Serif;
+  border: 1px solid rgb(0,0,0)
+}
+

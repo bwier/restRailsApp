@@ -1,0 +1,35 @@
+
+
+<%= ajax_button :hello_action %>
+<%= ajax_button :library_action %>
+<%= ajax_button :files_action %>
+<%= ajax_submit :search_action %>
+
+<p><b>url</b>
+<div id='request_div' class='request'>
+</div>
+
+<p><b>response</b>
+<div id='response_div' class='response'> 
+</div>
+
+<!-- DO NOT DELETE!!
+<table class="sample">
+  <caption>Spoon Browse</caption>
+  <tr>
+  <#% fields.each do |field| %>
+    <th><#%=field%></th>
+  <#%end%>
+  </tr>
+  <#% @response.each do |hash| %> 
+  <tr>
+    <#% 
+      fields.each do |field|
+    %>
+    <td><#%=hash[field]%></td>
+    <#% end %>
+  </tr>
+  <#% end %>
+</table>
+-->
+
