@@ -15,9 +15,9 @@ class RestController < ApplicationController
     send_request build_url('/hello')
   end
 
-  def library
-    send_request build_url('/library')
-  end
+  #def library
+    #send_request build_url('/library')
+  #end
 
   def files
     send_request build_url('/library/files')
@@ -44,27 +44,17 @@ class RestController < ApplicationController
   def send_request(path)
     uri = URI.parse(BASE_URL+path)
     getreq = Net::HTTP::Get.new(uri.path)
+    sign_request!(getreq)
     reqstr,respstr = start_request(getreq,uri)
     render_page(reqstr,respstr)
   end
 
   def send_post(path)
     uri = URI.parse(BASE_URL+path)
-#postreq = Net::HTTP::Post.new(uri.request_uri)
-#puts "params: " + params.inspect
-
-http = Net::HTTP.new(uri.host, uri.port)
-request = Net::HTTP::Post.new(uri.request_uri)
-request.set_form_data({"q" => "query213"})
-#sign_request!(request)
-response = http.request(request)
-
-
-reqstr = prep(request,uri)
-respstr = prep(response)
-
-#postreq.set_form_data( {'q'=>'myquery'}) #params)
-#reqstr,respstr = start_request(postreq,uri)
+    request = Net::HTTP::Post.new(uri.request_uri)
+    request.set_form_data( {'q'=>'myquery'}) #params)
+    sign_request!(request)
+    reqstr,respstr = start_request(request,uri)
     render_page(reqstr,respstr)
   end
 
@@ -77,7 +67,7 @@ respstr = prep(response)
     begin   
       reqstr = prep(req,uri)
       respstr = Net::HTTP::start(uri.host,uri.port) { |http|
-          sign_request!(req); resp = http.request(req); prep(resp) }
+          resp = http.request(req); prep(resp) }
     rescue Exception => e
       respstr = e.to_s end   
     return reqstr,respstr
@@ -93,7 +83,7 @@ respstr = prep(response)
     buf << httpobj.inspect.delete('#<>') 
     httpobj.each_header do |k,v|
         buf << "#{k}=#{v}" end 
-    buf << '<p>' << (httpobj.body||'') 
+    buf << '<br>' << (httpobj.body||'') 
   end
  
   def build_url(url)
