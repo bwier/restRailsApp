@@ -7,10 +7,10 @@
 module RestHelper
 
   def ajax_button(action)
-    button_to_remote action, build_args(action) 
+    button_to_remote action, build_args(action)
   end
 
-  def ajax_submit(action,fieldid='id') 
+  def ajax_submit(action,fieldid='guid') 
     actionstr = action.inspect
     render :inline => # render view 
       '<% form_remote_tag build_args('+actionstr+') do %>
@@ -18,9 +18,9 @@ module RestHelper
        <%=submit_tag('+actionstr+')%><%end%>'
   end
 
-  def build_args(action) {
-    :method=>'get',#post
-    :url=>{:action=>action} }
+  def build_args(action,method='get') {
+    :method=>method,
+    :url=>{:action=>action}}
   end
 
   def update(request,response)

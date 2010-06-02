@@ -11,80 +11,119 @@ class RestController < ApplicationController
 
   #------------------ handlers ------------------ 
 
-  def hello_action
-    send_request '/hello'
+  def hello
+    send_request build_url('/hello')
   end
 
-  def library_action
-    send_request '/library' 
+  def library
+    send_request build_url('/library')
   end
 
-  def files_action
-    send_request '/library/files'
+  def files
+    send_request build_url('/library/files')
   end
 
-  def search_action
-    send_request '/search'
+  def search
+    send_request build_url('/search')
   end
 
-#  def add_action
-#      post_request LIBRARY_URL,'add'
-#   end
+  def search_add
+    send_post build_url('/search')
+  end
+
+  def rescue_action(exception)
+    case exception 
+    when ::ActionController::RoutingError,
+      ::ActionController::UnknownAction then
+      render_page('Unknown route or action','')
+    else super end
+  end
 
   #------------------- helpers -_-----------------
 
   def send_request(path)
-    req,resp = start_request(path)
-    render(:update) { |page| 
-      page.update(req,resp)}
+    uri = URI.parse(BASE_URL+path)
+    getreq = Net::HTTP::Get.new(uri.path)
+    reqstr,respstr = start_request(getreq,uri)
+    render_page(reqstr,respstr)
   end
 
-#  def post_form(path,action)
-#    uri = URI.parse(ROOT+path)
-#    resp = Net::HTTP.post_form(uri,params)
-#    render :text => render_output(uri,resp)
-#  end
+  def send_post(path)
+    uri = URI.parse(BASE_URL+path)
+#postreq = Net::HTTP::Post.new(uri.request_uri)
+#puts "params: " + params.inspect
 
-  def start_request(path) 
+http = Net::HTTP.new(uri.host, uri.port)
+request = Net::HTTP::Post.new(uri.request_uri)
+request.set_form_data({"q" => "query213"})
+#sign_request!(request)
+response = http.request(request)
+
+
+reqstr = prep(request,uri)
+respstr = prep(response)
+
+#postreq.set_form_data( {'q'=>'myquery'}) #params)
+#reqstr,respstr = start_request(postreq,uri)
+    render_page(reqstr,respstr)
+  end
+
+#http = Net::HTTP.new(uri.host, uri.port)
+#request = Net::HTTP::Post.new(uri.request_uri)
+#request.set_form_data({"q" => "My query", "per_page" => "50"})
+#response = http.request(request)
+
+  def start_request(req,uri) 
     begin   
-      uri = URI.parse(BASE_URL+path)
-      req = Net::HTTP::Get.new(uri.path)
-      resp = Net::HTTP::start(uri.host,uri.port) { |http|
-                sign_request!(req); http.request(req) }
+      reqstr = prep(req,uri)
+      respstr = Net::HTTP::start(uri.host,uri.port) { |http|
+          sign_request!(req); resp = http.request(req); prep(resp) }
     rescue Exception => e
-      return prep(req),e.to_s    
-    end
-    return prep(req),prep(resp)
+      respstr = e.to_s end   
+    return reqstr,respstr
   end
 
-  def prep(httpobj,showurl=true)
-buf = showurl ? complete_request_uri+'<br>' : ''
-buf << httpobj.inspect.delete('#<>') 
-      httpobj.each_header do |k,v|
+  def render_page(reqPane,respPane)
+    render(:update) { |page|
+      page.update(reqPane,respPane)}
+  end
+
+  def prep(httpobj,uri=nil)
+    buf = !uri.nil? ? (complete_request_uri+'<br>'+uri.to_s+'<br>') : ''
+    buf << httpobj.inspect.delete('#<>') 
+    httpobj.each_header do |k,v|
         buf << "#{k}=#{v}" end 
-      buf << '<p>' << (httpobj.body||'') 
+    buf << '<p>' << (httpobj.body||'') 
+  end
+ 
+  def build_url(url)
+    guid = params[:guid]
+    url << '/'+guid unless guid.nil? or guid.empty?
+    return url
   end
 
   #-------------------- OAuth-------------------- 
 
   def sign_request!(req)
     begin
-      secret = IO.read(secret_file)
+      secret = IO.read(secret_path)
       OAuth::Consumer.new('restdemo',secret, {
          :site=>BASE_URL }).sign!(req)
-    rescue 
-      raise Exception, 'unable to sign request!'
+    rescue Exception => e
+      raise Exception, 'unable to sign request!: ' + e.to_s
     end
   end
 
-  def secret_file
-    (case when PLATFORM.include?('mswin')
-      '~/Application Data/LimeWire'  
-    when PLATFORM.include?('linux')
-      '~/.limewire'
-    when PLATFORM.include?('darwin4') 
-      '~/Library/Preferences/LimeWire'
-    else 'Unknown Platform...' end)+'/'+SECRET_FILE
+  def secret_path
+    File.expand_path( case
+      when PLATFORM.include?('mswin')
+        '~/Application Data/LimeWire'
+      when PLATFORM.include?('linux')
+        '~/.limewire'
+      when PLATFORM.include?('darwin')
+        '~/Library/Preferences/LimeWire'
+      else raise 'Unknown Platform...'
+    end)+'/'+SECRET_FILE
   end
 
 end
