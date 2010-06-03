@@ -8,11 +8,13 @@ class RestController < ApplicationController
 
   BASE_URL = 'http://localhost:45100/remote' 
   SECRET_FILE = 'restaccess.txt'
+  
+  BR = '<br>'
 
   #------------------ handlers ------------------ 
 
   def hello
-    send_request build_url('/hello')
+    send_request '/hello'
   end
 
   #def library
@@ -20,15 +22,15 @@ class RestController < ApplicationController
   #end
 
   def files
-    send_request build_url('/library/files')
+    send_request '/library/files'
   end
 
   def search
-    send_request build_url('/search')
+    send_request '/search'
   end
 
   def search_add
-    send_post build_url('/search')
+    send_post '/search'
   end
 
   def rescue_action(exception)
@@ -42,7 +44,7 @@ class RestController < ApplicationController
   #------------------- helpers -_-----------------
 
   def send_request(path)
-    uri = URI.parse(BASE_URL+path)
+    uri = build_uri(path)
     getreq = Net::HTTP::Get.new(uri.path)
     sign_request!(getreq)
     reqstr,respstr = start_request(getreq,uri)
@@ -50,10 +52,20 @@ class RestController < ApplicationController
   end
 
   def send_post(path)
-    uri = URI.parse(BASE_URL+path)
-    request = Net::HTTP::Post.new(uri.request_uri)
-    request.set_form_data( {'q'=>'myquery'}) #params)
+    uri = build_uri(path + '?q=britney' )
+    puts 'path ' + uri.inspect + '; ' + uri.query
+    puts 'uri methods: ' + uri.methods.inspect
+
+    request = Net::HTTP::Post.new(uri.request_uri + '?q=britney')
+request.set_form_data( {'q'=>'britney'}) 
     sign_request!(request)
+
+    request['content-type'] = 'UTF-8'
+    puts 'request methods: ' + request.methods.inspect
+    puts 'header: ' + request['content-type']
+
+    puts 'url? ' + uri.request_uri + '; ' + uri.normalize.to_s
+
     reqstr,respstr = start_request(request,uri)
     render_page(reqstr,respstr)
   end
@@ -79,17 +91,17 @@ class RestController < ApplicationController
   end
 
   def prep(httpobj,uri=nil)
-    buf = !uri.nil? ? (complete_request_uri+'<br>'+uri.to_s+'<br>') : ''
-    buf << httpobj.inspect.delete('#<>') 
+    buf = !uri.nil? ? uri.normalize.to_s : '' 
+    buf <<  httpobj.inspect.delete('#<>')
     httpobj.each_header do |k,v|
-        buf << "#{k}=#{v}" end 
-    buf << '<br>' << (httpobj.body||'') 
+        buf << "#{k}=#{v} " end 
+    buf << BR << (httpobj.body||'') 
   end
  
-  def build_url(url)
+  def build_uri(path)
     guid = params[:guid]
-    url << '/'+guid unless guid.nil? or guid.empty?
-    return url
+    path << '/'+guid unless guid.nil? or guid.empty?
+    uri = URI.parse(BASE_URL+path)
   end
 
   #-------------------- OAuth-------------------- 
@@ -98,7 +110,7 @@ class RestController < ApplicationController
     begin
       secret = IO.read(secret_path)
       OAuth::Consumer.new('restdemo',secret, {
-         :site=>BASE_URL }).sign!(req)
+         :site=>BASE_URL}).sign!(req)
     rescue Exception => e
       raise Exception, 'unable to sign request!: ' + e.to_s
     end
