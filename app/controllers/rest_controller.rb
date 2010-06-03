@@ -9,8 +9,6 @@ class RestController < ApplicationController
   BASE_URL = 'http://localhost:45100/remote' 
   SECRET_FILE = 'restaccess.txt'
   
-  BR = '<br>'
-
   #------------------ handlers ------------------ 
 
   def hello
@@ -26,69 +24,94 @@ class RestController < ApplicationController
   end
 
   def search
-    uri = build_uri('/search',params[:guid])
-    send_request uri
+    guid = guid(params[:guid])
+    send_request('/search',guid)
   end
 
   def search_add
-    parms = 'q='+params[:q] 
-    send_post build_uri('/search','',parms)
+    send_post('/search',query('q')) 
   end
   
   def rescue_action(exception)
-    case exception 
+    case exception
     when ::ActionController::RoutingError,
-      ::ActionController::UnknownAction then
-      render_page('Unknown route or action','')
+        ::ActionController::UnknownAction then
+      render_page(exception.inspect)
     else super end
   end
 
   #------------------- helpers -_-----------------
 
-  def send_request(uri)
-    getreq = Net::HTTP::Get.new(uri.path)
-    sign_request!(getreq)
-    reqstr,respstr = start_request(getreq,uri)
-    render_page(reqstr,respstr)
+  def send_request(path,subpath=nil)
+    begin
+      uri = uri(path,subpath)
+      getreq = Net::HTTP::Get.new(uri.path)
+      sign_request!(getreq)
+      start_request(getreq,uri)
+    rescue Exception => e
+      render_exception(getreq,e.to_s,uri)
+    end
   end
 
-  def send_post(uri)
-    postreq = Net::HTTP::Post.new(uri.request_uri)
-    postreq['content-type'] = 'UTF-8'
-    postreq.set_form_data(uri.query)      
-    sign_request!(postreq)
-    reqstr,respstr = start_request(postreq,uri)
-    render_page(reqstr,respstr)
+  def send_post(path,query)
+    begin 
+      uri = uri(path,nil,query)
+      postreq = Net::HTTP::Post.new(uri.request_uri)
+      postreq.set_form_data(uri.query) 
+      postreq['content-type'] = 'UTF-8'
+      sign_request!(postreq)
+      start_request(postreq,uri)
+    rescue Exception => e
+      render_exception(postreq,e.to_s,uri)
+     end
   end
 
   def start_request(req,uri) 
-    begin   
-      reqstr = prep(req,uri)
-      respstr = Net::HTTP::start(uri.host,uri.port) { |http|
-          resp = http.request(req); prep(resp) }
-    rescue Exception => e
-      respstr = e.to_s end   
-    return reqstr,respstr
+    resp = Net::HTTP::start(uri.host,uri.port) { |http|
+      http.request(req); }
+    render_page(req,resp,uri)
   end
 
-  def render_page(reqPane,respPane)
+  def render_exception(request,exception,uri)
+    reqstr = prep(request,uri)
     render(:update) { |page|
-      page.update(reqPane,respPane)}
+      page.update(reqstr,exception) }
+  end
+
+  def render_page(request,response,uri)
+    reqstr = prep(request,uri)
+    respstr = prep(response)
+    render(:update) { |page|
+      page.update(reqstr,respstr) }
   end
 
   def prep(httpobj,uri=nil)
-    buf = !uri.nil? ? uri.normalize.to_s + BR : '' 
+    buf = !uri.nil? ? uri.normalize.to_s + '<br>' : '' 
     buf <<  httpobj.inspect.delete('#<>')
     httpobj.each_header do |k,v|
         buf << "#{k}=#{v} " end 
-    buf << BR << (httpobj.body||'') 
+    buf << '<br>' << (httpobj.body||'') 
   end
  
-  def build_uri(path,subpath='',parms='')
-    path << '/'+subpath if !subpath.empty? 
-#path << '?'+parms if !parms.empty?
-puts 'path: ' + path
+  def uri(path,subpath=nil,query=nil)
+    path << '/'+subpath unless !set?(subpath)
+    path << '?'+query unless !set?(query)
     uri = URI.parse(BASE_URL+path)
+  end
+
+  def query(key,hash=params)
+    val = hash[key] 
+    query = set?(val) ? key+'='+val : ''
+    query.gsub(' ','+') 
+  end
+
+  def guid(guidstr)
+    len = guidstr.length #if not valid guid, return empty str
+    return (len.eql?(32) ? guidstr : '') 
+  end
+
+  def set?(obj)
+    !obj.nil? && !obj.empty?
   end
 
   #-------------------- OAuth-------------------- 
