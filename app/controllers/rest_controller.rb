@@ -26,13 +26,15 @@ class RestController < ApplicationController
   end
 
   def search
-    send_request '/search'
+    uri = build_uri('/search',params[:guid])
+    send_request uri
   end
 
   def search_add
-    send_post '/search'
+    parms = 'q='+params[:q] 
+    send_post build_uri('/search','',parms)
   end
-
+  
   def rescue_action(exception)
     case exception 
     when ::ActionController::RoutingError,
@@ -43,37 +45,21 @@ class RestController < ApplicationController
 
   #------------------- helpers -_-----------------
 
-  def send_request(path)
-    uri = build_uri(path)
+  def send_request(uri)
     getreq = Net::HTTP::Get.new(uri.path)
     sign_request!(getreq)
     reqstr,respstr = start_request(getreq,uri)
     render_page(reqstr,respstr)
   end
 
-  def send_post(path)
-    uri = build_uri(path + '?q=britney' )
-    puts 'path ' + uri.inspect + '; ' + uri.query
-    puts 'uri methods: ' + uri.methods.inspect
-
-    request = Net::HTTP::Post.new(uri.request_uri + '?q=britney')
-request.set_form_data( {'q'=>'britney'}) 
-    sign_request!(request)
-
-    request['content-type'] = 'UTF-8'
-    puts 'request methods: ' + request.methods.inspect
-    puts 'header: ' + request['content-type']
-
-    puts 'url? ' + uri.request_uri + '; ' + uri.normalize.to_s
-
-    reqstr,respstr = start_request(request,uri)
+  def send_post(uri)
+    postreq = Net::HTTP::Post.new(uri.request_uri)
+    postreq['content-type'] = 'UTF-8'
+    postreq.set_form_data(uri.query)      
+    sign_request!(postreq)
+    reqstr,respstr = start_request(postreq,uri)
     render_page(reqstr,respstr)
   end
-
-#http = Net::HTTP.new(uri.host, uri.port)
-#request = Net::HTTP::Post.new(uri.request_uri)
-#request.set_form_data({"q" => "My query", "per_page" => "50"})
-#response = http.request(request)
 
   def start_request(req,uri) 
     begin   
@@ -91,16 +77,17 @@ request.set_form_data( {'q'=>'britney'})
   end
 
   def prep(httpobj,uri=nil)
-    buf = !uri.nil? ? uri.normalize.to_s : '' 
+    buf = !uri.nil? ? uri.normalize.to_s + BR : '' 
     buf <<  httpobj.inspect.delete('#<>')
     httpobj.each_header do |k,v|
         buf << "#{k}=#{v} " end 
     buf << BR << (httpobj.body||'') 
   end
  
-  def build_uri(path)
-    guid = params[:guid]
-    path << '/'+guid unless guid.nil? or guid.empty?
+  def build_uri(path,subpath='',parms='')
+    path << '/'+subpath if !subpath.empty? 
+#path << '?'+parms if !parms.empty?
+puts 'path: ' + path
     uri = URI.parse(BASE_URL+path)
   end
 
