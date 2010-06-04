@@ -10,8 +10,9 @@ class RestController < ApplicationController
   SECRET_FILE = 'restaccess.txt'
  
   LIB_URL   = '/library'
-  FILE_URL = '/files'
-  SRCH_URL = '/search'
+  FILE_URL  = '/files'
+  SRCH_URL  = '/search'
+  DWNLD_URL = '/download'
 
   #------------------ handlers ------------------ 
 
@@ -23,7 +24,15 @@ class RestController < ApplicationController
     send_request LIB_URL+FILE_URL
   end
 
-  def search
+  def downloads
+    send_request DWNLD_URL
+  end
+
+  def download_start
+    send_post(DWNLD_URL,query('magnet'))
+  end
+
+  def search_all
     guid = guid(params[:guid])
     filepath = set?(guid) ? '/'+guid+'/files' : '' 
     send_request(SRCH_URL+filepath)
@@ -118,8 +127,8 @@ class RestController < ApplicationController
 
   def query(key,hash=params)
     val = hash[key] 
-    query = set?(val) ? key+'='+val : ''
-    query.gsub(' ','+') 
+    query = set?(val) ? key+'='+urlencode(val) : ''
+    #query.gsub(' ','+') 
   end
 
   def guid(guidstr)
@@ -154,6 +163,10 @@ class RestController < ApplicationController
       else raise 'Unknown Platform...'
     end)+'/'+SECRET_FILE
   end
+
+  def urlencode(url)
+    URI.escape(url, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]")) 
+  end 
 
 end
 
