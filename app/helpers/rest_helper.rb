@@ -15,9 +15,13 @@ module RestHelper
     fieldidstr = fieldid.inspect
     infostr = friendlytxt.inspect 
     render :inline => # render view 
-      '<% form_remote_tag build_args('+actionstr+') do %>
+      '<%form_remote_tag build_args('+actionstr+') do %>
        <%=text_field_tag('+fieldidstr+','+infostr+')%>
        <%=submit_tag('+actionstr+')%><%end%>'
+  end
+
+  def ajax_poller()
+    periodically_call_remote(:url=>{:action=>:poller}, :frequency => '5')#, :update => 'response_div')
   end
 
   def build_args(action,method='get') {

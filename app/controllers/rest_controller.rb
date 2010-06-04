@@ -38,13 +38,8 @@ class RestController < ApplicationController
     send_delete(SRCH_URL+'/'+guid)
   end
 
-
   def rescue_action(exception)
-    case exception
-    when ::ActionController::RoutingError,
-        ::ActionController::UnknownAction then
-      render_page(exception.inspect)
-    else super end
+    render_exception(exception.inspect)
   end
 
   #------------------- helpers -_-----------------
@@ -54,9 +49,10 @@ class RestController < ApplicationController
       uri = uri(path)
       getreq = Net::HTTP::Get.new(uri.path)
       sign_request!(getreq)
-      start_request(getreq,uri)
+      resp = start_request(getreq,uri)
+      render_page(getreq,resp,uri)
     rescue Exception => e
-      render_exception(getreq,e.to_s,uri)
+      render_exception(e.to_s,getreq,uri)
     end
   end
 
@@ -65,35 +61,38 @@ class RestController < ApplicationController
       uri = uri(path)
       delreq = Net::HTTP::Delete.new(uri.request_uri)
       sign_request!(delreq)
-      start_request(delreq,uri)
+      resp = start_request(delreq,uri)
+      render_page(delreq,resp,uri)
     rescue Exception => e
-      render_exception(delreq,e.to_s,uri)
+      render_exception(e.to_s,delreq,uri)
      end
   end
 
   def send_post(path,query)
-    begin 
+    begin
+      raise Exception,'you must type a query!' unless set?(query)
       uri = uri(path,query)
       postreq = Net::HTTP::Post.new(uri.request_uri)
       postreq.set_form_data(uri.query) 
       postreq['content-type'] = 'UTF-8'
       sign_request!(postreq)
-      start_request(postreq,uri)
+      resp = start_request(postreq,uri)
+      render_page(postreq,resp,uri)
     rescue Exception => e
-      render_exception(postreq,e.to_s,uri)
-     end
+      render_exception(e.to_s,postreq,uri)
+    end
   end
 
   def start_request(req,uri) 
     resp = Net::HTTP::start(uri.host,uri.port) { |http|
       http.request(req); }
-    render_page(req,resp,uri)
   end
 
-  def render_exception(request,exception,uri)
-    reqstr = pretty_prep(request,uri)
+  def render_exception(exception,request=nil,uri=nil)
+    parsedEx = exception
+    reqstr = !request.nil? ? pretty_prep(request,uri) : ''
     render(:update) { |page|
-      page.update(reqstr,exception) }
+      page.update(reqstr,parsedEx) }
   end
 
   def render_page(request,response,uri)
@@ -124,7 +123,7 @@ class RestController < ApplicationController
   end
 
   def guid(guidstr)
-    len = guidstr.length #if not valid guid, return empty str
+    len = (guidstr||'').length #if not valid guid, return empty str
     return (len.eql?(32) ? guidstr : '') 
   end
 
