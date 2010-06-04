@@ -8,30 +8,37 @@ class RestController < ApplicationController
 
   BASE_URL = 'http://localhost:45100/remote' 
   SECRET_FILE = 'restaccess.txt'
-  
+ 
+  LIB_URL   = '/library'
+  FILE_URL = '/files'
+  SRCH_URL = '/search'
+
   #------------------ handlers ------------------ 
 
   def hello
     send_request '/hello'
   end
 
-  #def library
-    #send_request build_url('/library')
-  #end
-
   def files
-    send_request '/library/files'
+    send_request LIB_URL+FILE_URL
   end
 
   def search
     guid = guid(params[:guid])
-    send_request('/search',guid)
+    filepath = set?(guid) ? '/'+guid+'/files' : '' 
+    send_request(SRCH_URL+filepath)
   end
 
   def search_add
-    send_post('/search',query('q')) 
+    send_post(SRCH_URL,query('q')) 
   end
-  
+
+  def search_delete
+    guid = guid(params[:guid])
+    send_delete(SRCH_URL+'/'+guid)
+  end
+
+
   def rescue_action(exception)
     case exception
     when ::ActionController::RoutingError,
@@ -42,9 +49,9 @@ class RestController < ApplicationController
 
   #------------------- helpers -_-----------------
 
-  def send_request(path,subpath=nil)
+  def send_request(path)
     begin
-      uri = uri(path,subpath)
+      uri = uri(path)
       getreq = Net::HTTP::Get.new(uri.path)
       sign_request!(getreq)
       start_request(getreq,uri)
@@ -53,9 +60,20 @@ class RestController < ApplicationController
     end
   end
 
+  def send_delete(path)
+    begin 
+      uri = uri(path)
+      delreq = Net::HTTP::Delete.new(uri.request_uri)
+      sign_request!(delreq)
+      start_request(delreq,uri)
+    rescue Exception => e
+      render_exception(delreq,e.to_s,uri)
+     end
+  end
+
   def send_post(path,query)
     begin 
-      uri = uri(path,nil,query)
+      uri = uri(path,query)
       postreq = Net::HTTP::Post.new(uri.request_uri)
       postreq.set_form_data(uri.query) 
       postreq['content-type'] = 'UTF-8'
@@ -73,28 +91,28 @@ class RestController < ApplicationController
   end
 
   def render_exception(request,exception,uri)
-    reqstr = prep(request,uri)
+    reqstr = pretty_prep(request,uri)
     render(:update) { |page|
       page.update(reqstr,exception) }
   end
 
   def render_page(request,response,uri)
-    reqstr = prep(request,uri)
-    respstr = prep(response)
+    reqstr = pretty_prep(request,uri)
+    respstr = pretty_prep(response)
     render(:update) { |page|
       page.update(reqstr,respstr) }
   end
 
-  def prep(httpobj,uri=nil)
+  def pretty_prep(httpobj,uri=nil)
     buf = !uri.nil? ? uri.normalize.to_s + '<br>' : '' 
     buf <<  httpobj.inspect.delete('#<>')
     httpobj.each_header do |k,v|
         buf << "#{k}=#{v} " end 
-    buf << '<br>' << (httpobj.body||'') 
+    body = httpobj.body||''
+    buf << '<br>' << body.gsub('},','},<br>')
   end
  
-  def uri(path,subpath=nil,query=nil)
-    path << '/'+subpath unless !set?(subpath)
+  def uri(path,query=nil)
     path << '?'+query unless !set?(query)
     uri = URI.parse(BASE_URL+path)
   end
