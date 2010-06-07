@@ -8,16 +8,18 @@ class RestController < ApplicationController
 
   BASE_URL = 'http://localhost:45100/remote' 
   SECRET_FILE = 'restaccess.txt'
- 
+
+  # REST subpaths  
   LIB_URL   = '/library'
   FILE_URL  = '/files'
   SRCH_URL  = '/search'
   DWNLD_URL = '/download'
+  HELLO_URL = '/hello'
 
   #------------------ handlers ------------------ 
 
   def hello
-    send_request '/hello'
+    send_request HELLO_URL
   end
 
   def files
@@ -28,13 +30,15 @@ class RestController < ApplicationController
     send_request DWNLD_URL
   end
 
-  def download_start
-    send_post(DWNLD_URL,query('magnet'))
-  end
+  # authentication not working 
+  # for REST API download POSTs
+  #def download_start
+    #send_post(DWNLD_URL,query('magnet'))
+  #end
 
   def search_all
     guid = guid(params[:guid])
-    filepath = set?(guid) ? '/'+guid+'/files' : '' 
+    filepath = nil?(guid) ? '/'+guid+FILE_URL : '' 
     send_request(SRCH_URL+filepath)
   end
 
@@ -51,13 +55,12 @@ class RestController < ApplicationController
     render_exception(exception.inspect)
   end
 
-  #------------------- helpers -_-----------------
+  #--------------- request helpers ----------------
 
   def send_request(path)
     begin
       uri = uri(path)
       getreq = Net::HTTP::Get.new(uri.path)
-      sign_request!(getreq)
       resp = start_request(getreq,uri)
       render_page(getreq,resp,uri)
     rescue Exception => e
@@ -69,7 +72,6 @@ class RestController < ApplicationController
     begin 
       uri = uri(path)
       delreq = Net::HTTP::Delete.new(uri.request_uri)
-      sign_request!(delreq)
       resp = start_request(delreq,uri)
       render_page(delreq,resp,uri)
     rescue Exception => e
@@ -79,12 +81,9 @@ class RestController < ApplicationController
 
   def send_post(path,query)
     begin
-      raise Exception,'you must type a query!' unless set?(query)
+      raise Exception,'you must type a query!' unless nil?(query)
       uri = uri(path,query)
-      postreq = Net::HTTP::Post.new(uri.request_uri)
-      postreq.set_form_data(uri.query) 
-      postreq['content-type'] = 'UTF-8'
-      sign_request!(postreq)
+      postreq = post(uri)
       resp = start_request(postreq,uri)
       render_page(postreq,resp,uri)
     rescue Exception => e
@@ -93,10 +92,13 @@ class RestController < ApplicationController
   end
 
   def start_request(req,uri) 
+    sign_request!(req)
     resp = Net::HTTP::start(uri.host,uri.port) { |http|
       http.request(req); }
   end
 
+  #--------------- rendering ------------------ 
+  
   def render_exception(exception,request=nil,uri=nil)
     parsedEx = exception
     reqstr = !request.nil? ? pretty_prep(request,uri) : ''
@@ -119,16 +121,29 @@ class RestController < ApplicationController
     body = httpobj.body||''
     buf << '<br>' << body.gsub('},','},<br>')
   end
+
+  #--------------- http objects -------------- 
  
+  def post(uri)
+    req = Net::HTTP::Post.new(uri.request_uri)
+    req.set_form_data(uri.query)
+    req['content-type'] = 'UTF-8'
+    return req
+  end
+
   def uri(path,query=nil)
-    path << '?'+query unless !set?(query)
+    path << '?'+query unless !nil?(query)
     uri = URI.parse(BASE_URL+path)
   end
 
   def query(key,hash=params)
     val = hash[key] 
-    query = set?(val) ? key+'='+urlencode(val) : ''
+ puts "before: " + (key+'='+val)
+    query = nil?(val) ? key+'='+urlencode(val) : ''
+#query.gsub('%3D','=')
+ puts "after: " + query
     #query.gsub(' ','+') 
+   query 
   end
 
   def guid(guidstr)
@@ -136,7 +151,7 @@ class RestController < ApplicationController
     return (len.eql?(32) ? guidstr : '') 
   end
 
-  def set?(obj)
+  def nil?(obj)
     !obj.nil? && !obj.empty?
   end
 
@@ -165,7 +180,7 @@ class RestController < ApplicationController
   end
 
   def urlencode(url)
-    URI.escape(url, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]")) 
+URI.escape(url, Regexp.new("[^#{URI::PATTERN::UNRESERVED}]")) 
   end 
 
 end
