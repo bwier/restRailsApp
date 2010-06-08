@@ -15,13 +15,11 @@ module RestHelper
     render :inline => # render view 
     '<%form_remote_tag :url=>{:action=>:search_action} do %> 
      <%=hidden_field_tag "ctrl_action",""%>
-     <%=select_tag "search_text", options_for_select(["All", "VISA", "MasterCard", "Switch" ]) %>
+     <%=text_field_tag("submit_text","Enter text here")%>
      <%=submit_tag "All", onClickEvent("ctrl_action","search_all") %>
      <%=submit_tag "Add", onClickEvent("ctrl_action","search_add") %>
      <%=submit_tag "Delete", onClickEvent("ctrl_action","search_delete")%><%end%>'
   end       
-
-#<%=text_field_tag("submit_text","Enter text here")%>
 
   def ajax_submit(action,fieldid,friendlytxt) 
     actionstr = action.inspect
