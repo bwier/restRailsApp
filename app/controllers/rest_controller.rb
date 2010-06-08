@@ -14,6 +14,7 @@ class RestController < ApplicationController
   FILE_URL  = '/files'
   SRCH_URL  = '/search'
   DWNLD_URL = '/download'
+  STRM_URL  = '/stream'
   HELLO_URL = '/hello'
 
   #------------------ handlers ------------------ 
@@ -36,18 +37,29 @@ class RestController < ApplicationController
     #send_post(DWNLD_URL,query('magnet'))
   #end
 
-  def search_all
-    guid = guid(params[:guid])
+  def stream
+    send_request(STRM_URL+'/'+params[:urn])
+  end
+
+  def search_action
+    action = params[:ctrl_action].chomp
+    fieldtxt = params[:submit_text]
+    send action,fieldtxt 
+  end
+
+  def search_all(guid_str)
+    guid = guid(guid_str)
     filepath = nil?(guid) ? '/'+guid+FILE_URL : '' 
     send_request(SRCH_URL+filepath)
   end
 
-  def search_add
-    send_post(SRCH_URL,query('q')) 
+  def search_add(query_str='')
+    query = 'q='+urlencode(query_str)
+    send_post(SRCH_URL,query) 
   end
 
-  def search_delete
-    guid = guid(params[:guid])
+  def search_delete(guid_str)
+    guid = guid(guid_str)
     send_delete(SRCH_URL+'/'+guid)
   end
 
@@ -107,10 +119,18 @@ class RestController < ApplicationController
   end
 
   def render_page(request,response,uri)
+
+jarr = JSON.parse(response.body) 
+jarr.each { |f| puts f['id'] } #decode
+
+puts "json: " + response.body 
+
     reqstr = pretty_prep(request,uri)
     respstr = pretty_prep(response)
     render(:update) { |page|
       page.update(reqstr,respstr) }
+
+#jarr.each { |h| h['uri'] = CGI.unescape(h['uri']) } #decode
   end
 
   def pretty_prep(httpobj,uri=nil)
@@ -138,11 +158,7 @@ class RestController < ApplicationController
 
   def query(key,hash=params)
     val = hash[key] 
- puts "before: " + (key+'='+val)
     query = nil?(val) ? key+'='+urlencode(val) : ''
-#query.gsub('%3D','=')
- puts "after: " + query
-    #query.gsub(' ','+') 
    query 
   end
 

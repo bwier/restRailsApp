@@ -7,15 +7,28 @@
 module RestHelper
 
   def ajax_button(action)
-    button_to_remote action, build_args(action)
+    button_to_remote action, {:url=>{:action=>action}}
   end
+
+  def ajax_search()
+    @options = ['All','None']
+    render :inline => # render view 
+    '<%form_remote_tag :url=>{:action=>:search_action} do %> 
+     <%=hidden_field_tag "ctrl_action",""%>
+     <%=select_tag "search_text", options_for_select(["All", "VISA", "MasterCard", "Switch" ]) %>
+     <%=submit_tag "All", onClickEvent("ctrl_action","search_all") %>
+     <%=submit_tag "Add", onClickEvent("ctrl_action","search_add") %>
+     <%=submit_tag "Delete", onClickEvent("ctrl_action","search_delete")%><%end%>'
+  end       
+
+#<%=text_field_tag("submit_text","Enter text here")%>
 
   def ajax_submit(action,fieldid,friendlytxt) 
     actionstr = action.inspect
     fieldidstr = fieldid.inspect
     infostr = friendlytxt.inspect 
     render :inline => # render view 
-      '<%form_remote_tag build_args('+actionstr+') do %>
+      '<%form_remote_tag :url=>{:action=>'+actionstr+'} do %> 
        <%=text_field_tag('+fieldidstr+','+infostr+')%>
        <%=submit_tag('+actionstr+')%><%end%>'
   end
@@ -24,14 +37,13 @@ module RestHelper
     periodically_call_remote(:url=>{:action=>:poller}, :frequency => '5')#, :update => 'response_div')
   end
 
-  def build_args(action,method='get') {
-    :method=>method,
-    :url=>{:action=>action}}
-  end
-
   def update(request,response)
     page.replace_html 'request_div',request
     page.replace_html 'response_div',response
+  end
+
+  def onClickEvent(key,val) {
+    :onClick=>"$('"+key+"').value='"+val+"';"}
   end
 
 end
